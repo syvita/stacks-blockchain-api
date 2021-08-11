@@ -698,7 +698,7 @@ function parseStackStxArgs(contract: ContractCallTransaction): RosettaStakeContr
       ''
     );
 
-    console.log('unlock-burn-height parsing', temp);
+    console.log('unlock-burn-height parsing', JSON.stringify(temp));
 
     // Stacker address
     args.stacker_address = cvToString(resultTuple.data['stacker']);

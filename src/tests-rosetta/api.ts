@@ -2622,7 +2622,7 @@ describe('Rosetta API', () => {
       },
     );
 
-    console.log('stxUnlockHeight', blockStxOpsQuery.body)
+    console.log('stxUnlockHeight', JSON.stringify(blockStxOpsQuery.body));
 
     let stxUnlockHeight = blockStxOpsQuery.body.block.transactions[1].operations[1].metadata.unlock_burn_height;
     expect(stxUnlockHeight).toBeTruthy();
