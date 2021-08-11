@@ -2430,6 +2430,9 @@ describe('Rosetta API', () => {
     };
     expect(preprocessResult.body).toEqual(expectResponse);
 
+    await standByForPoxToBeReady();
+
+
     //metadata 
     const metadataRequest: RosettaConstructionMetadataRequest = {
       network_identifier: {
