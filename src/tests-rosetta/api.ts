@@ -2593,6 +2593,8 @@ describe('Rosetta API', () => {
     //rosetta block
     const stxLockedTransaction = await standByForTx(submitResult.body.transaction_identifier.hash);
 
+    console.log('stxLockedTransaction', stxLockedTransaction);
+
     const blockHeight = stxLockedTransaction.block_height;
     let block = await api.datastore.getBlock({ height: blockHeight });
     assert(block.found);
