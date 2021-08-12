@@ -348,7 +348,7 @@ export function createRosettaConstructionRouter(db: DataStore, chainId: ChainID)
         options.contract_address = contractInfo[0];
         options.contract_name = contractInfo[1];
         // Adding 3 blocks to provide a buffer for transaction to confirm
-        options.burn_block_height = coreInfo.burn_block_height + 3;
+        options.burn_block_height = coreInfo.burn_block_height;
         break;
       }
       case RosettaOperationType.DelegateStx: {
