@@ -587,6 +587,7 @@ function parseDbBaseTx(dbTx: DbTx | DbMempoolTx): BaseTransaction {
     post_condition_mode: serializePostConditionMode(dbTx.post_conditions.readUInt8(0)),
     post_conditions: postConditions,
     anchor_mode: getTxAnchorModeString(dbTx.anchor_mode),
+    abi: dbTx.abi,
   };
   return tx;
 }
@@ -747,6 +748,7 @@ export function parseDbTx(dbTx: DbTx): Transaction {
   const result: Transaction = {
     ...abstractTx,
     ...txMetadata,
+    abi: dbTx.abi,
   };
   return result;
 }
@@ -758,6 +760,7 @@ export function parseDbMempoolTx(dbMempoolTx: DbMempoolTx): MempoolTransaction {
   const result: MempoolTransaction = {
     ...abstractTx,
     ...txMetadata,
+    abi: dbMempoolTx.abi,
   };
   return result;
 }
@@ -776,9 +779,7 @@ export async function getMempoolTxFromDataStore(
   }
   const parsedMempoolTx = parseDbMempoolTx(mempoolTxQuery.result);
   // If tx type is contract-call then fetch additional contract ABI details for a richer response
-  if (parsedMempoolTx.tx_type === 'contract_call') {
-    await getContractCallMetadata(db, mempoolTxQuery.result, parsedMempoolTx);
-  }
+  getContractCallMetadata(mempoolTxQuery.result, parsedMempoolTx);
   return {
     found: true,
     result: parsedMempoolTx,
@@ -803,9 +804,7 @@ export async function getTxFromDataStore(
   const parsedTx = parseDbTx(dbTx);
 
   // If tx type is contract-call then fetch additional contract ABI details for a richer response
-  if (parsedTx.tx_type === 'contract_call') {
-    await getContractCallMetadata(db, dbTx, parsedTx);
-  }
+  getContractCallMetadata(dbTx, parsedTx);
 
   // If tx events are requested
   if ('eventLimit' in args) {
@@ -824,42 +823,36 @@ export async function getTxFromDataStore(
   };
 }
 
-async function getContractCallMetadata(
-  db: DataStore,
+function getContractCallMetadata(
   dbTx: DbTx | DbMempoolTx,
   parsedTx: Transaction | MempoolTransaction
-): Promise<void> {
-  // If tx type is contract-call then fetch additional contract ABI details for a richer response
-  if (parsedTx.tx_type === 'contract_call') {
-    const contract = await db.getSmartContract(parsedTx.contract_call.contract_id);
-    if (!contract.found) {
-      throw new Error(
-        `Failed to lookup smart contract by ID ${parsedTx.contract_call.contract_id}`
-      );
-    }
-    const contractAbi: ClarityAbi = JSON.parse(contract.result.abi);
-    const functionAbi = contractAbi.functions.find(
-      fn => fn.name === parsedTx.contract_call.function_name
+): void {
+  // removing abi as we don't need to return this in the response object
+  const abi = dbTx.abi;
+  delete parsedTx.abi;
+  if (!abi || parsedTx.tx_type !== 'contract_call') return;
+  const contractAbi: ClarityAbi = JSON.parse(abi);
+  const functionAbi = contractAbi.functions.find(
+    fn => fn.name === parsedTx.contract_call.function_name
+  );
+  if (!functionAbi) {
+    throw new Error(
+      `Could not find function name "${parsedTx.contract_call.function_name}" in ABI for ${parsedTx.contract_call.contract_id}`
     );
-    if (!functionAbi) {
-      throw new Error(
-        `Could not find function name "${parsedTx.contract_call.function_name}" in ABI for ${parsedTx.contract_call.contract_id}`
-      );
-    }
-    parsedTx.contract_call.function_signature = abiFunctionToString(functionAbi);
-    if (dbTx.contract_call_function_args) {
-      parsedTx.contract_call.function_args = readClarityValueArray(
-        dbTx.contract_call_function_args
-      ).map((c, fnArgIndex) => {
-        const functionArgAbi = functionAbi.args[fnArgIndex++];
-        return {
-          hex: bufferToHexPrefixString(serializeCV(c)),
-          repr: cvToString(c),
-          name: functionArgAbi.name,
-          type: getTypeString(functionArgAbi.type),
-        };
-      });
-    }
+  }
+  parsedTx.contract_call.function_signature = abiFunctionToString(functionAbi);
+  if (dbTx.contract_call_function_args) {
+    parsedTx.contract_call.function_args = readClarityValueArray(
+      dbTx.contract_call_function_args
+    ).map((c, fnArgIndex) => {
+      const functionArgAbi = functionAbi.args[fnArgIndex++];
+      return {
+        hex: bufferToHexPrefixString(serializeCV(c)),
+        repr: cvToString(c),
+        name: functionArgAbi.name,
+        type: getTypeString(functionArgAbi.type),
+      };
+    });
   }
 }
 
