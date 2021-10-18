@@ -779,7 +779,7 @@ export async function getMempoolTxFromDataStore(
   }
   const parsedMempoolTx = parseDbMempoolTx(mempoolTxQuery.result);
   // If tx type is contract-call then fetch additional contract ABI details for a richer response
-  getContractCallMetadata(mempoolTxQuery.result, parsedMempoolTx);
+  parseContractCallMetadata(mempoolTxQuery.result, parsedMempoolTx);
   return {
     found: true,
     result: parsedMempoolTx,
@@ -804,7 +804,7 @@ export async function getTxFromDataStore(
   const parsedTx = parseDbTx(dbTx);
 
   // If tx type is contract-call then fetch additional contract ABI details for a richer response
-  getContractCallMetadata(dbTx, parsedTx);
+  parseContractCallMetadata(dbTx, parsedTx);
 
   // If tx events are requested
   if ('eventLimit' in args) {
@@ -823,7 +823,7 @@ export async function getTxFromDataStore(
   };
 }
 
-function getContractCallMetadata(
+function parseContractCallMetadata(
   dbTx: DbTx | DbMempoolTx,
   parsedTx: Transaction | MempoolTransaction
 ): void {
