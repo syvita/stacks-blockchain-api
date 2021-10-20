@@ -587,7 +587,6 @@ function parseDbBaseTx(dbTx: DbTx | DbMempoolTx): BaseTransaction {
     post_condition_mode: serializePostConditionMode(dbTx.post_conditions.readUInt8(0)),
     post_conditions: postConditions,
     anchor_mode: getTxAnchorModeString(dbTx.anchor_mode),
-    abi: dbTx.abi,
   };
   return tx;
 }
@@ -748,7 +747,6 @@ export function parseDbTx(dbTx: DbTx): Transaction {
   const result: Transaction = {
     ...abstractTx,
     ...txMetadata,
-    abi: dbTx.abi,
   };
   return result;
 }
@@ -760,7 +758,6 @@ export function parseDbMempoolTx(dbMempoolTx: DbMempoolTx): MempoolTransaction {
   const result: MempoolTransaction = {
     ...abstractTx,
     ...txMetadata,
-    abi: dbMempoolTx.abi,
   };
   return result;
 }
@@ -779,7 +776,7 @@ export async function getMempoolTxFromDataStore(
   }
   const parsedMempoolTx = parseDbMempoolTx(mempoolTxQuery.result);
   // If tx type is contract-call then fetch additional contract ABI details for a richer response
-  parseContractCallMetadata(mempoolTxQuery.result, parsedMempoolTx);
+  parseContractCallMetadata(mempoolTxQuery.result, parsedMempoolTx, mempoolTxQuery.result.abi);
   return {
     found: true,
     result: parsedMempoolTx,
@@ -791,6 +788,7 @@ export async function getTxFromDataStore(
   args: GetTxArgs | GetTxWithEventsArgs | GetTxFromDbTxArgs
 ): Promise<FoundOrNot<Transaction>> {
   let dbTx: DbTx;
+  let abi: string | undefined;
   if ('dbTx' in args) {
     dbTx = args.dbTx;
   } else {
@@ -799,12 +797,13 @@ export async function getTxFromDataStore(
       return { found: false };
     }
     dbTx = txQuery.result;
+    abi = txQuery.result.abi;
   }
 
   const parsedTx = parseDbTx(dbTx);
 
   // If tx type is contract-call then fetch additional contract ABI details for a richer response
-  parseContractCallMetadata(dbTx, parsedTx);
+  parseContractCallMetadata(dbTx, parsedTx, abi);
 
   // If tx events are requested
   if ('eventLimit' in args) {
@@ -825,11 +824,10 @@ export async function getTxFromDataStore(
 
 function parseContractCallMetadata(
   dbTx: DbTx | DbMempoolTx,
-  parsedTx: Transaction | MempoolTransaction
+  parsedTx: Transaction | MempoolTransaction,
+  abi?: string
 ): void {
   // removing abi as we don't need to return this in the response object
-  const abi = dbTx.abi;
-  delete parsedTx.abi;
   if (!abi || parsedTx.tx_type !== 'contract_call') return;
   const contractAbi: ClarityAbi = JSON.parse(abi);
   const functionAbi = contractAbi.functions.find(
